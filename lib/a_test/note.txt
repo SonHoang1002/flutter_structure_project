@@ -1,0 +1,289 @@
+
+  d 
+
+ 
+
+
+  Widget _buildBody() {
+    if (_currentStep.id == LIST_STEP_SELECTION[0].id) {
+      return BodyImport(
+        projectModel: _projectModel,
+        currentStep: _currentStep,
+        onUpdateImage: _onUpdateSelectedImage,
+        onUpdateStep: _onNext,
+      );
+    } else {
+      if (_projectModel.bgRemovedImage != null) {
+        if (_currentStep.id == LIST_STEP_SELECTION[1].id) {
+          return BodyAdjust(
+            projectModel: _projectModel,
+            offsetTrackerBrightness: _offsetTrackerBrightness,
+            indexSegment: _indexSegment,
+            indexSnapList: _indexSnapList,
+            transformationController: _transformationAdjustController,
+            currentStep: _currentStep,
+            onUpdateProject: (newModel) {
+              _projectModel = newModel;
+              setState(() {});
+            },
+            onNextStep: _onNext,
+            onSelectStep: _onSelectStepOption,
+            onUpdateOffsetTracker: (offset) {
+              _offsetTrackerBrightness = offset;
+              setState(() {});
+            },
+            onUpdateSegment: (index) {
+              setState(() {
+                _indexSegment = index;
+              });
+            },
+            onUpdateSnapList: (index) {
+              setState(() {
+                _indexSnapList = index;
+              });
+            },
+            onUpdateShaders: (List<dynamic> shaders) {
+              setState(() {
+                _groupShaderConvertedConfiguration = shaders[0];
+                _brightnessShaderConfiguration = shaders[1];
+              });
+            },
+            onUpdateConvertedImageSize: (previewFrame) {
+              setState(() {
+                _sizeConvertedImage =
+                    Size(previewFrame.width, previewFrame.height);
+              });
+            },
+          );
+        } else if (_currentStep.id == LIST_STEP_SELECTION[2].id) {
+          return BodyCrop(
+            projectModel: _projectModel,
+            matrix4: _matrix4Crop,
+            imageSelectedSize: _imageSelectedSize!,
+            screenSize: _size,
+            currentStep: _currentStep,
+            onSelectStep: (stepModel) {
+              _onSelectStepOption(stepModel);
+            },
+            onUpdateProject: (model) {
+              setState(() {
+                _projectModel = model;
+              });
+            },
+            onUpdateMatrix: (matrix) {
+              setState(() {
+                _matrix4Crop = matrix;
+              });
+            },
+            onUpdateCropModel: (cropModel) {
+              setState(() {
+                _projectModel = _projectModel..cropModel = cropModel;
+              });
+            },
+            imageDataUint8List:
+                (_projectModel.adjustedImage ?? _projectModel.selectedImage!)
+                    .readAsBytesSync(),
+            onUpdateStep: _onNext,
+          );
+        } else if (_currentStep.id == LIST_STEP_SELECTION[3].id) {
+          return BodyFinish(
+            projectModel: _projectModel,
+            screenSize: _size,
+            currentStep: _currentStep,
+            onExport: _onExport,
+            onPrint: _onPrint,
+            onUpdateStep: _onNext,
+          );
+        }
+      }
+      return const SizedBox();
+    }
+  }
+
+
+
+  export with shader
+    // export background
+    // export adjust
+    // final _background = widget.projectModel.background;
+    // ShaderConfiguration? tranToColorConfig;
+    // if (_background is Color) {
+    //   tranToColorConfig = TransparentToColorConfiguration()
+    //     ..color = widget.projectModel.background!;
+    // }
+    // if (tranToColorConfig != null) {
+    //   _groupShaderConvertedConfiguration!.add(tranToColorConfig);
+    // }
+    // if (_isLoadImageFilter == true) {
+    //   ui.Image image = await _groupShaderConvertedConfiguration!
+    //       .export(_textureConverted!, _textureConverted!.size);
+    //   ByteData? byteData =
+    //       await image.toByteData(format: ui.ImageByteFormat.png);
+    //   if (byteData != null) {
+    //     consolelog("ok ok ok");
+    //     final path = (await getExternalStorageDirectory())!.path;
+    //     final newFile =
+    //         await File(path + "/$CROP_PROCESSING_IMAGE_NAME" + "png")
+    //             .writeAsBytes(byteData.buffer.asUint8List());
+    //     widget.onUpdateProject(widget.projectModel..adjustedImage = newFile);
+    //   }
+    // }
+    // if (tranToColorConfig != null) {
+    //   _groupShaderConvertedConfiguration!.remove(tranToColorConfig);
+    // }
+
+  // export with repaint
+   final path = (await getExternalStorageDirectory())!.path;
+    final newPathAdjusted = path + "/$CROP_PROCESSING_IMAGE_NAME" + ".png";
+    // ignore: use_build_context_synchronously
+    final RenderRepaintBoundary boundary = _keyRepaintBoundary.currentContext!
+        .findRenderObject() as RenderRepaintBoundary;
+    ui.Image image = await boundary.toImage();
+    ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    if (byteData != null) { 
+      final Uint8List pngBytes = byteData.buffer.asUint8List();
+      final newAdjustedFile =
+          await File(newPathAdjusted).writeAsBytes(pngBytes);
+      widget.onUpdateProject(
+          widget.projectModel..adjustedImage = newAdjustedFile);
+      consolelog("newAdjustedFile ${newAdjustedFile}");
+    }
+            // goo hole
+            AnimatedOpacity(
+              opacity: _isImageFullScreen ? 0.2 : 1,
+              duration: const Duration(milliseconds: 200),
+              child: CustomPaint(
+                key: _keyPainter,
+                painter: HolePainter(
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                  targetSize: _cropHoleSize,
+                ),
+              ),
+            ),
+            // gesture area  
+            // Center(
+            //     child: Container(
+            //   height: _cropHoleSize.height,
+            //   width: _cropHoleSize.width,
+            //   child: GestureDetector(
+            //     onScaleUpdate: (details) {
+            //       if (details.pointerCount == 1) {
+            //         _isImageFullScreen = true;
+            //         final vec3 =
+            //             _tranfromImageController.value.getTranslation();
+            //         final currentOffset = Offset(vec3.x, vec3.y);
+            //         _tranfromImageController.value.setTranslation(Vector3(
+            //             currentOffset.dx + details.focalPointDelta.dx,
+            //             currentOffset.dy + details.focalPointDelta.dy,
+            //             vec3.z));
+            //       } else if (details.pointerCount == 2) {
+            //         double maxScale =
+            //             _tranfromImageController.value.getMaxScaleOnAxis();
+            //         final mainScale = details.scale / maxScale;
+            //         Matrix4 currentMatrix4 = _tranfromImageController.value;
+            //         _tranfromImageController.value = currentMatrix4.clone()
+            //           ..scale(mainScale, mainScale, mainScale)
+            //           ..translate(details.focalPointDelta.dx * mainScale,
+            //               details.focalPointDelta.dy * mainScale);
+            //       }
+            //       setState(() {});
+            //     },
+            //     onScaleEnd: (details) {
+            //       setState(() {
+            //         _isImageFullScreen = false;
+            //       });
+            //     },
+            //   ),
+            // ))
+         
+
+
+  void _onAnimatedToInnerImageListener() {
+    _transformImageController.value = animationMatrix4.value;
+    if (animationController.isCompleted) {
+      animationController.removeListener(_onAnimatedToInnerImageListener);
+    }
+    setState(() {});
+  }
+
+  void _handleAnimateToInnerImage(Offset pixelsPerSecond) {
+    final abc = _transformImageController.value.getTranslation();
+    var newX = abc.x;
+    var newY = abc.y;
+    newX = newX.clamp(
+      _cropHoleSize.width -
+          ((_cropModel?.scaledSize.width ?? 0) *
+              _transformImageController.value.getMaxScaleOnAxis()),
+      0,
+    );
+    newY = newY.clamp(
+      _cropHoleSize.height -
+          ((_cropModel?.scaledSize.height ?? 0) *
+              _transformImageController.value.getMaxScaleOnAxis()),
+      0,
+    );
+    animationController.stop();
+    Matrix4 centerMatrix4 = Matrix4.identity();
+    centerMatrix4.translate(newX, newY);
+    centerMatrix4.scale(_transformImageController.value.getMaxScaleOnAxis());
+
+    animationMatrix4 =
+        Matrix4Tween(begin: _transformImageController.value, end: centerMatrix4)
+            .animate(animationController);
+    final double unitsPerSecondX = pixelsPerSecond.dx / _cropHoleSize.width;
+    final double unitsPerSecondY = pixelsPerSecond.dy / _cropHoleSize.height;
+    final Offset unitsPerSecond = Offset(unitsPerSecondX, unitsPerSecondY);
+    final double unitVelocity = unitsPerSecond.distance;
+    const SpringDescription spring = SpringDescription(
+      mass: 30,
+      stiffness: 2,
+      damping: 1,
+    );
+    final SpringSimulation simulation =
+        SpringSimulation(spring, 0, 1, -unitVelocity);
+    animationController.animateWith(simulation);
+    animationController.addListener(_onAnimatedToInnerImageListener);
+    setState(() {});
+  }
+
+// local
+
+// tra ra anh den trang, nhung extension la png -> tu dong chuyen mau den sang trong suot
+      // final status = await FlutterMethodChannel()
+      //     .detectObjectAndDeleteBackground(
+      //         _projectModel.selectedImage!.path,
+      //         await createTempFile(_projectModel.selectedImage!.path,
+      //             extension: "png"));
+      // if (status == null || status == false) {
+      //   _projectModel.bgRemovedImage = _projectModel.selectedImage;
+      // }
+      
+// isolate
+Size? newSizeConvertedImage;
+    RenderObject? renderObject =
+        _keyConvertedImage.currentContext?.findRenderObject();
+    if (renderObject != null) {
+      newSizeConvertedImage = (renderObject as RenderBox).size;
+    }
+    Offset objectOffset;
+    if (_indexBackgroundSelected != 0) {
+      final vector3 = widget.transformationController.value.getTranslation();
+      objectOffset = Offset(vector3.x, vector3.y);
+    } else {
+      objectOffset = const Offset(0, 0);
+    }
+    final stopwatch0 = Stopwatch()..start();
+    await FlutterIsolates()
+        .handleExportAdjust(
+            widget.projectModel,
+            brightness ?? _brightnessShaderConfiguration!.valueBrightness,
+            _groupShaderConvertedConfiguration!,
+            objectOffset,
+            newSizeConvertedImage ?? _sizeConvertedImage!)
+        .then((value) {
+      consolelog("handleExportAdjust end");
+      widget.onUpdateProject(widget.projectModel..adjustedImage = value);
+      setState(() {});
+    });
+    stopwatch0.stop();
+    debugPrint('onExportBackground Time : ${stopwatch0.elapsedMilliseconds}');
